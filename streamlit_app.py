@@ -1,11 +1,12 @@
 import streamlit as st
 from openai import OpenAI
+from text_objects import *
 
 # Show title and description.
 st.title("💬 Arkive Chatbot")
 st.write(
     "Arkive is a chatbot that answers your questions using selected messages from the Universal House of Justice, as published on Bahai.org."
-    "To use this app, you need to enter a password:"
+    " To use this app, you need to enter a password:"
 )
 
 # Ask user for their OpenAI API key via `st.text_input`.
@@ -34,7 +35,7 @@ else:
 
     # Create a chat input field to allow the user to enter a message. This will display
     # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
+    if prompt := st.chat_input("Ask anything about the Universal House of Justice's guidance..."):
 
         # Store and display the current prompt.
         st.session_state.messages.append({"role": "user", "content": prompt})
@@ -43,16 +44,18 @@ else:
 
         # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4.1-mini",
             messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
+            {"role":"system"
+            ,"content":system_prompt},
+            {"role": "user",
+            "content": prompt}],
+                stream=True,
+            )
 
         # Stream the response to the chat using `st.write_stream`, then store it in 
         # session state.
         with st.chat_message("assistant"):
             response = st.write_stream(stream)
         st.session_state.messages.append({"role": "assistant", "content": response})
+
