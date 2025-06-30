@@ -59,7 +59,7 @@ else:
     if user_query := st.chat_input("Ask anything about the Universal House of Justice's guidance..."):
 
         # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.messages.append({"role": "user", "content": user_query})
         with st.chat_message("user"):
             st.markdown(user_query)
 

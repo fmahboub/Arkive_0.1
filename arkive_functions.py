@@ -1,3 +1,8 @@
+import openai
+import streamlit as st
+import numpy as np
+openai.api_key = st.secrets["api_keys"]["openai"]
+
 def embed_texts(texts, model="text-embedding-3-large", batch_size=100):
     embeddings = []
     for i in range(0, len(texts), batch_size):
