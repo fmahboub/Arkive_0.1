@@ -1,6 +1,27 @@
 import streamlit as st
 from openai import OpenAI
+import json
+import faiss
 from text_objects import *
+from arkive_functions import *
+
+index_name_path = "house_of_justice_all_2025-06-19/"
+
+FAISS_FILE = index_name_path + "embeddings_index.faiss"
+DOCS_JSON = index_name_path + "docstore.json"
+NAMES_JSON = index_name_path + "source_names.json"
+URLS_JSON = index_name_path + "source_urls.json"
+
+# === Load Metadata ===
+with open(DOCS_JSON) as f:
+    texts = json.load(f)
+with open(NAMES_JSON) as f:
+    names = json.load(f)
+with open(URLS_JSON) as f:
+    urls = json.load(f)
+
+# === Load FAISS Index ===
+index = faiss.read_index(FAISS_FILE)
 
 # Show title and description.
 st.title("💬 Arkive Chatbot")
@@ -35,13 +56,16 @@ else:
 
     # Create a chat input field to allow the user to enter a message. This will display
     # automatically at the bottom of the page.
-    if prompt := st.chat_input("Ask anything about the Universal House of Justice's guidance..."):
+    if user_query := st.chat_input("Ask anything about the Universal House of Justice's guidance..."):
 
         # Store and display the current prompt.
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
-            st.markdown(prompt)
+            st.markdown(user_query)
 
+        context = retrieve_top_k(user_query,index, texts, names, urls, k=3)
+
+        prompt = build_prompt(user_query, context)
         # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
             model="gpt-4.1-mini",
