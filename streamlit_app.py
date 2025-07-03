@@ -23,27 +23,40 @@ with open(URLS_JSON) as f:
 # === Load FAISS Index ===
 index = faiss.read_index(FAISS_FILE)
 
-# Show title and description.
-# st.title("Arkive")
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    st.image("Arkive_Logo_No_Background.png", width=250)  
-st.write(
-    "Arkive is a chatbot that answers your questions using selected messages from the Universal House of Justice, as published on Bahai.org."
-    " To use this app, you need to enter a password:"
-)
+# Initialize session state for authentication
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.secrets["api_keys"]["openai"]
-entered_password = st.text_input("Password",type="password")
-actual_password = st.secrets["auth"]["entry_password"]
+# If not authenticated, show logo and password input
+if not st.session_state.authenticated:
+    col1, col2, col3 = st.columns([5, 10, 4])
+    with col2:
+        st.image("Logo_White_NoBG.png", width=250)
 
-if entered_password!= actual_password:
-    st.info("Please enter the correct password to continue.", icon="🗝️")
-else:
+    st.write(
+        "Arkive is a chatbot that answers your questions using messages from the Universal House of Justice. Please enter a password to use the app:"
+    )
 
+    # API key from secrets
+    openai_api_key = st.secrets["api_keys"]["openai"]
+
+    # Password input
+    entered_password = st.text_input("Password", type="password")
+    actual_password = st.secrets["auth"]["entry_password"]
+
+    if entered_password:
+        if entered_password == actual_password:
+            st.session_state.authenticated = True
+            st.success("Access granted. You may now use the app.")
+        else:
+            st.info("Please enter the correct password to continue.", icon="🗝️")
+
+# If authenticated, show the rest of your app
+if st.session_state.authenticated:
+# else:
+    col1, col2, col3 = st.columns([5, 10, 4])
+    with col2:
+        st.image("Logo_White_NoBG.png", width=250)
     # Create an OpenAI client.
     client = OpenAI(api_key=openai_api_key)
 
