@@ -54,12 +54,6 @@ if not st.session_state.authenticated:
 # If authenticated, show the rest of your app
 if st.session_state.authenticated:
 # else:
-    col1, col2, col3 = st.columns([5, 10, 4])
-    with col2:
-        st.image("Logo_White_NoBG.png", width=250)
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
-
     # Create a session state variable to store the chat messages. This ensures that the
     # messages persist across reruns.
     if "messages" not in st.session_state:
