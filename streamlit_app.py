@@ -81,9 +81,12 @@ if st.session_state.authenticated:
         with st.chat_message("user"):
             st.markdown(user_query)
 
-        context = retrieve_top_k(user_query,index, texts, names, urls, k=4)
+        context, distances = retrieve_top_k(user_query,index, texts, names, urls, k=4)
 
-        prompt = build_prompt(user_query, context)
+        if valid_query(user_query, distances):
+            prompt = build_prompt(user_query, context)
+        else:
+            prompt = user_query
         # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
             model=default_model,
@@ -101,13 +104,14 @@ if st.session_state.authenticated:
             # response = st.write_stream(stream)
             response, usage = stream_with_placeholder(stream)
         with st.chat_message("system"):
-            usage_message = f"Token usage - Prompt: {usage.prompt_tokens}, Completion: {usage.completion_tokens}, Total: {usage.total_tokens}"
-            st.markdown(usage_message)
+            usage_message = f"Token usage - Prompt: {usage.prompt_tokens} | Completion: {usage.completion_tokens} | Total: {usage.total_tokens} | "
             cost = usage_to_cost(usage, model=default_model)
-            cost_message = f"Estimated cost: ${cost:.6f}"
-            st.markdown(cost_message)
+            cost += 0.00001 #ADD AVG COST OF CALLING valid_query()
+            cost_message = f"(Est. cost: ${cost:.5f})"
+            st.markdown(usage_message+cost_message)
+            # st.markdown(cost_message)
         st.session_state.messages.append({"role": "assistant", "content": response})
-        st.session_state.messages.append({"role": "system", "content": usage_message})
-        st.session_state.messages.append({"role": "system", "content": cost_message})
+        st.session_state.messages.append({"role": "system", "content": usage_message+cost_message})
+        # st.session_state.messages.append({"role": "system", "content": cost_message})
 
 

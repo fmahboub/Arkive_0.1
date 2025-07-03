@@ -1,6 +1,7 @@
 import openai
 import streamlit as st
 import numpy as np
+import faiss
 import time
 
 openai.api_key = st.secrets["api_keys"]["openai"]
@@ -42,7 +43,7 @@ def retrieve_top_k(user_query, index, texts, names, urls, k=5):
         continue
       chunks.append({"chunk":texts[indices[0][i]], "document_name":doc_name, "url":urls[indices[0][i]]})
   chunks = format_multiple_contexts(chunks)
-  return chunks
+  return chunks, distances
 
 def build_prompt(user_query, context):
   # Build prompt
@@ -94,3 +95,24 @@ def usage_to_cost(usage, model="gpt-4.1", use_cached_input=False):
     completion_cost = usage.completion_tokens * price["completion"]
     
     return prompt_cost + completion_cost
+
+def valid_query(prompt, distances,):
+    client = openai.OpenAI(api_key=openai.api_key)
+
+    system_message = "Is it remotely possible that the following text can be answered by the writings of the Universal House of Justice? Lean yes if unsure and answer only 'yes' or 'no'"
+    full_prompt = f'"{prompt}"'
+
+    response = client.chat.completions.create(
+        model="gpt-4.1-nano",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": full_prompt}
+        ]
+    )
+
+    answer = response.choices[0].message.content.strip().lower()
+
+    if answer == 'yes' or distances[0][0] < 1.4:
+        return True
+    else:
+        return False
