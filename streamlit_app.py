@@ -24,7 +24,10 @@ with open(URLS_JSON) as f:
 index = faiss.read_index(FAISS_FILE)
 
 # Show title and description.
-st.title("💬 Arkive Chatbot")
+# st.title("Arkive")
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    st.image("Arkive_Logo_No_Background.png", width=250)  
 st.write(
     "Arkive is a chatbot that answers your questions using selected messages from the Universal House of Justice, as published on Bahai.org."
     " To use this app, you need to enter a password:"
@@ -56,7 +59,7 @@ else:
 
     # Create a chat input field to allow the user to enter a message. This will display
     # automatically at the bottom of the page.
-    if user_query := st.chat_input("Ask anything about the Universal House of Justice's guidance..."):
+    if user_query := st.chat_input("Ask anything from the guidance of the Universal House of Justice..."):
 
         # Store and display the current prompt.
         st.session_state.messages.append({"role": "user", "content": user_query})
