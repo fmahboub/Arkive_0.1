@@ -61,6 +61,7 @@ if st.session_state.authenticated:
     # API key from secrets
     openai_api_key = st.secrets["api_keys"]["openai"]
     client = openai.OpenAI(api_key=openai_api_key)
+    default_model = "gpt-4.1"
     # Create a session state variable to store the chat messages. This ensures that the
     # messages persist across reruns.
     if "messages" not in st.session_state:
@@ -80,12 +81,12 @@ if st.session_state.authenticated:
         with st.chat_message("user"):
             st.markdown(user_query)
 
-        context = retrieve_top_k(user_query,index, texts, names, urls, k=5)
+        context = retrieve_top_k(user_query,index, texts, names, urls, k=4)
 
         prompt = build_prompt(user_query, context)
         # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
-            model="gpt-4.1",
+            model=default_model,
             messages=[
             {"role":"system"
             ,"content":system_prompt},
@@ -99,13 +100,14 @@ if st.session_state.authenticated:
         with st.chat_message("assistant"):
             # response = st.write_stream(stream)
             response, usage = stream_with_placeholder(stream)
+        with st.chat_message("system"):
             usage_message = f"Token usage - Prompt: {usage.prompt_tokens}, Completion: {usage.completion_tokens}, Total: {usage.total_tokens}"
             st.markdown(usage_message)
-            cost = usage_to_cost(usage)
+            cost = usage_to_cost(usage, model=default_model)
             cost_message = f"Estimated cost: ${cost:.6f}"
             st.markdown(cost_message)
         st.session_state.messages.append({"role": "assistant", "content": response})
-        st.session_state.messages.append({"role": "assistant", "content": usage_message})
-        st.session_state.messages.append({"role": "assistant", "content": cost_message})
+        st.session_state.messages.append({"role": "system", "content": usage_message})
+        st.session_state.messages.append({"role": "system", "content": cost_message})
 
 
