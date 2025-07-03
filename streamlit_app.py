@@ -83,10 +83,11 @@ if st.session_state.authenticated:
 
         context, distances = retrieve_top_k(user_query,index, texts, names, urls, k=4)
 
+        # IF valid_query RETURNS FALSE THEN DO NOT RETURN CONTEXT (EXTRA COST)
         if valid_query(user_query, distances):
             prompt = build_prompt(user_query, context)
         else:
-            prompt = user_query
+            prompt = user_query 
         # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
             model=default_model,

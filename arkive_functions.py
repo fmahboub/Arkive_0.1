@@ -71,19 +71,24 @@ def stream_with_placeholder(stream):
 
   return response_text, usage
 
-def usage_to_cost(usage, model="gpt-4.1", use_cached_input=False):
+def usage_to_cost(usage, model, use_cached_input=False):
     pricing_table = {
-        "gpt-4.1": {
-            "prompt": 2.00 / 1_000_000,
-            "cached_prompt": 0.50 / 1_000_000,
-            "completion": 8.00 / 1_000_000,
-        },
-        "gpt-4.1-mini": {
-            "prompt": 0.40 / 1_000_000,
-            "cached_prompt": 0.10 / 1_000_000,
-            "completion": 1.60 / 1_000_000,
-        },
-    }
+    "gpt-4.1": {
+        "prompt": 2.00 / 1_000_000,
+        "cached_prompt": 0.50 / 1_000_000,
+        "completion": 8.00 / 1_000_000,
+    },
+    "gpt-4.1-mini": {
+        "prompt": 0.40 / 1_000_000,
+        "cached_prompt": 0.10 / 1_000_000,
+        "completion": 1.60 / 1_000_000,
+    },
+    "gpt-4.1-nano": {
+        "prompt": 0.10 / 1_000_000,
+        "cached_prompt": 0.025 / 1_000_000,
+        "completion": 0.40 / 1_000_000,
+    },
+}
     
     price = pricing_table.get(model)
     if price is None:
