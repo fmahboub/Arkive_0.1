@@ -29,7 +29,7 @@ if "authenticated" not in st.session_state:
 
 # If not authenticated, show logo and password input
 if not st.session_state.authenticated:
-    col1, col2, col3 = st.columns([5, 10, 4])
+    col1, col2, col3 = st.columns([11, 20, 8])
     with col2:
         st.image("Logo_White_NoBG.png", width=250)
 
@@ -37,8 +37,6 @@ if not st.session_state.authenticated:
         "Arkive is a chatbot that answers your questions using messages from the Universal House of Justice. Please enter a password to use the app:"
     )
 
-    # API key from secrets
-    openai_api_key = st.secrets["api_keys"]["openai"]
 
     # Password input
     entered_password = st.text_input("Password", type="password")
@@ -48,12 +46,18 @@ if not st.session_state.authenticated:
         if entered_password == actual_password:
             st.session_state.authenticated = True
             st.success("Access granted. You may now use the app.")
+            st.rerun()
         else:
             st.info("Please enter the correct password to continue.", icon="🗝️")
 
 # If authenticated, show the rest of your app
 if st.session_state.authenticated:
-# else:
+    col1, col2, col3 = st.columns([11, 20, 8])
+    with col2:
+        st.image("Logo_White_NoBG.png", width=250)
+    # API key from secrets
+    openai_api_key = st.secrets["api_keys"]["openai"]
+    client = openai.OpenAI(api_key=openai_api_key)
     # Create a session state variable to store the chat messages. This ensures that the
     # messages persist across reruns.
     if "messages" not in st.session_state:
@@ -73,12 +77,12 @@ if st.session_state.authenticated:
         with st.chat_message("user"):
             st.markdown(user_query)
 
-        context = retrieve_top_k(user_query,index, texts, names, urls, k=3)
+        context = retrieve_top_k(user_query,index, texts, names, urls, k=5)
 
         prompt = build_prompt(user_query, context)
         # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model="gpt-4.1",
             messages=[
             {"role":"system"
             ,"content":system_prompt},
@@ -91,5 +95,7 @@ if st.session_state.authenticated:
         # session state.
         with st.chat_message("assistant"):
             response = st.write_stream(stream)
+        # with st.chat_message("assistant"):
+        #     response = st.markdown(context)
         st.session_state.messages.append({"role": "assistant", "content": response})
 
