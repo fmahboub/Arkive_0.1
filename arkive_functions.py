@@ -1,6 +1,8 @@
 import openai
 import streamlit as st
 import numpy as np
+import time
+
 openai.api_key = st.secrets["api_keys"]["openai"]
 
 def embed_texts(texts, model="text-embedding-3-large", batch_size=100):
@@ -47,3 +49,48 @@ def build_prompt(user_query, context):
   prompt = f"Use the following context to answer the question:\n{context}\
   \n\nQuestion: {user_query}\nAnswer:"
   return prompt
+
+def stream_with_placeholder(stream):
+  placeholder = st.empty()  # Reserve a spot for updating text
+  response_text = ""
+  usage = None
+
+  for chunk in stream:
+      if chunk.usage:
+          usage = chunk.usage
+      else:
+          delta = chunk.choices[0].delta
+          content = getattr(delta, "content", "")
+          if content:
+              response_text += content
+              placeholder.markdown(response_text)  # Update the whole accumulated text
+
+              # Optional: small delay to make streaming effect visible
+              time.sleep(0.01)
+
+  return response_text, usage
+
+def usage_to_cost(usage, model="gpt-4.1", use_cached_input=False):
+    pricing_table = {
+        "gpt-4.1": {
+            "prompt": 2.00 / 1_000_000,
+            "cached_prompt": 0.50 / 1_000_000,
+            "completion": 8.00 / 1_000_000,
+        },
+        "gpt-4.1-mini": {
+            "prompt": 0.40 / 1_000_000,
+            "cached_prompt": 0.10 / 1_000_000,
+            "completion": 1.60 / 1_000_000,
+        },
+    }
+    
+    price = pricing_table.get(model)
+    if price is None:
+        raise ValueError(f"Unknown model pricing for {model}")
+
+    prompt_price = price["cached_prompt"] if use_cached_input else price["prompt"]
+    
+    prompt_cost = usage.prompt_tokens * prompt_price
+    completion_cost = usage.completion_tokens * price["completion"]
+    
+    return prompt_cost + completion_cost

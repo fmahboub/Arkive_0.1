@@ -2,10 +2,13 @@ import streamlit as st
 from openai import OpenAI
 import json
 import faiss
+from datetime import date
+import requests
 from text_objects import *
 from arkive_functions import *
 
 index_name_path = "house_of_justice_all_2025-06-19/"
+today = date.today()
 
 FAISS_FILE = index_name_path + "embeddings_index.faiss"
 DOCS_JSON = index_name_path + "docstore.json"
@@ -89,13 +92,20 @@ if st.session_state.authenticated:
             {"role": "user",
             "content": prompt}],
                 stream=True,
+                stream_options={"include_usage": True}
             )
-
         # Stream the response to the chat using `st.write_stream`, then store it in 
         # session state.
         with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        # with st.chat_message("assistant"):
-        #     response = st.markdown(context)
+            # response = st.write_stream(stream)
+            response, usage = stream_with_placeholder(stream)
+            usage_message = f"Token usage - Prompt: {usage.prompt_tokens}, Completion: {usage.completion_tokens}, Total: {usage.total_tokens}"
+            st.markdown(usage_message)
+            cost = usage_to_cost(usage)
+            cost_message = f"Estimated cost: ${cost:.6f}"
+            st.markdown(cost_message)
         st.session_state.messages.append({"role": "assistant", "content": response})
+        st.session_state.messages.append({"role": "assistant", "content": usage_message})
+        st.session_state.messages.append({"role": "assistant", "content": cost_message})
+
 
