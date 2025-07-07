@@ -117,7 +117,7 @@ def valid_query(prompt, distances,):
 
     answer = response.choices[0].message.content.strip().lower()
 
-    if answer == 'yes' or distances[0][0] < 1.4:
+    if answer == 'yes' or distances[0][0] < 1.6:
         return True
     else:
         return False
