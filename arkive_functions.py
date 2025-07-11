@@ -3,6 +3,9 @@ import streamlit as st
 import numpy as np
 import faiss
 import time
+import json
+from datetime import date
+from text_objects import *
 
 openai.api_key = st.secrets["api_keys"]["openai"]
 
@@ -26,22 +29,33 @@ def format_multiple_contexts(chunks: list[dict]) -> str:
         )
     return "\n\n".join(formatted_chunks)
 
-def retrieve_top_k(user_query, index, texts, names, urls, k=5):
+def retrieve_top_k(user_query, index, texts, names, urls, time_range, k=5):
+  # RETURN BLANK IF K=0
   if k == 0:
     return ''
+
   query_vector = embed_texts([user_query])[0].reshape(1, -1)
-  # RETURN DOUBLE WHAT IS NEEDED
-  distances, indices = index.search(query_vector, k*2)
+  time_range = time_range['time_range']
+  # RETURN 10x WHAT IS NEEDED (IN CASE OF WRONG TIME PERIODS + SMALL CHUNKS)
+  distances, indices = index.search(query_vector, k*10)
+  filtered_distances = []
   chunks = []
-  for i in range(k*2):
-      if len(chunks) >= k:
-        break
-      doc_name = names[indices[0][i]].replace('__',' - ').replace('_', ' ').strip('.json')
-      text = texts[indices[0][i]]
-      # REMOVE ANY CHUNK WITH LESS THAN 5 WORDS
-      if len(text.split()) < 5:
+  for i in range(k*10):
+    if len(chunks) >= k:
+      break
+    doc_name = names[indices[0][i]].replace('__',' - ').replace('_', ' ').strip('.json')
+    doc_year = doc_name.split()[2]
+    text = texts[indices[0][i]]
+    # IGNORE ANY CHUNK WITH LESS THAN 5 WORDS
+    if len(text.split()) < 5:
+      continue
+    # CHECK IF THERE'S A TIME RANGE
+    if time_range != None:
+      # IGNORE ANY CHUNKS OUTSIDE OF THE TIME RANGE
+      if doc_year < str(time_range['start_year']) or doc_year > str(time_range['end_year']):
         continue
-      chunks.append({"chunk":texts[indices[0][i]], "document_name":doc_name, "url":urls[indices[0][i]]})
+    chunks.append({"chunk":texts[indices[0][i]], "document_name":doc_name, "url":urls[indices[0][i]]})
+    filtered_distances.append(distances[0][i])
   chunks = format_multiple_contexts(chunks)
   return chunks, distances
 
@@ -101,7 +115,7 @@ def usage_to_cost(usage, model, use_cached_input=False):
     
     return prompt_cost + completion_cost
 
-def valid_query(prompt, distances,):
+def valid_query(prompt, distances):
     client = openai.OpenAI(api_key=openai.api_key)
 
     system_message = "Is it remotely possible that the following text can be answered by the writings of the Universal House of Justice? Lean yes if unsure and answer only 'yes' or 'no'"
@@ -116,8 +130,32 @@ def valid_query(prompt, distances,):
     )
 
     answer = response.choices[0].message.content.strip().lower()
-
     if answer == 'yes' or distances[0][0] < 1.6:
-        return True
+        return True, response.usage
     else:
-        return False
+        return False, response.usage
+
+def get_time_range(user_query):
+  # Call OpenAI using the new API structure
+  client = openai.OpenAI(api_key=openai.api_key)
+
+  response = client.chat.completions.create(
+      model="gpt-4.1-mini",
+      messages=[
+          {"role":"system"
+          ,"content":get_time_range_system_prompt},
+          {"role": "user",
+          "content": user_query}],
+          temperature=0
+          )
+  try:
+    time_range = json.loads(response.choices[0].message.content)
+    # CHECK IF RANGE IS EFFECTIVELY NONE
+    if time_range['time_range']['start_year'] <= 1963 and time_range['time_range']['end_year'] >= int(today.split('-')[0]):
+      return {"time_range": None}, response.usage
+    else:
+      return time_range, response.usage
+  except:
+    # print("Error: Couldn't reformat to JSON")
+    # print(response.choices[0].message.content)
+    return {"time_range": None}, response.usage

@@ -8,7 +8,6 @@ from text_objects import *
 from arkive_functions import *
 
 index_name_path = "house_of_justice_all_2025-06-19/"
-today = date.today()
 
 FAISS_FILE = index_name_path + "embeddings_index.faiss"
 DOCS_JSON = index_name_path + "docstore.json"
@@ -75,16 +74,22 @@ if st.session_state.authenticated:
     # Create a chat input field to allow the user to enter a message. This will display
     # automatically at the bottom of the page.
     if user_query := st.chat_input("Ask anything from the guidance of the Universal House of Justice..."):
-
+        cost = 0
+        total_token_count = 0
         # Store and display the current prompt.
         st.session_state.messages.append({"role": "user", "content": user_query})
         with st.chat_message("user"):
             st.markdown(user_query)
 
-        context, distances = retrieve_top_k(user_query,index, texts, names, urls, k=4)
-
+        time_range, time_range_usage = get_time_range(user_query)
+        cost += usage_to_cost(time_range_usage, "gpt-4.1-mini")
+        total_token_count += time_range_usage.total_tokens
+        context, distances = retrieve_top_k(user_query,index, texts, names, urls, time_range, k=4)
         # IF valid_query RETURNS FALSE THEN DO NOT RETURN CONTEXT (EXTRA COST)
-        if valid_query(user_query, distances):
+        is_valid, valid_query_usage = valid_query(user_query, distances)
+        cost += usage_to_cost(valid_query_usage, "gpt-4.1-nano")
+        total_token_count += valid_query_usage.total_tokens
+        if is_valid:
             prompt = build_prompt(user_query, context)
         else:
             prompt = user_query 
@@ -93,7 +98,7 @@ if st.session_state.authenticated:
             model=default_model,
             messages=[
             {"role":"system"
-            ,"content":system_prompt},
+            ,"content":main_system_prompt},
             {"role": "user",
             "content": prompt}],
                 stream=True,
@@ -103,16 +108,16 @@ if st.session_state.authenticated:
         # session state.
         with st.chat_message("assistant"):
             # response = st.write_stream(stream)
-            response, usage = stream_with_placeholder(stream)
+            response, main_usage = stream_with_placeholder(stream)
+            cost += usage_to_cost(main_usage, model=default_model)
+            total_token_count += main_usage.total_tokens
         with st.chat_message("system"):
-            usage_message = f"Token usage - Prompt: {usage.prompt_tokens} | Completion: {usage.completion_tokens} | Total: {usage.total_tokens} | "
-            cost = usage_to_cost(usage, model=default_model)
-            cost += 0.00001 #ADD AVG COST OF CALLING valid_query()
-            cost_message = f"(Est. cost: ${cost:.5f})"
-            st.markdown(usage_message+cost_message)
-            # st.markdown(cost_message)
+            main_usage_message = f"MAIN&nbsp;&nbsp;{main_usage.prompt_tokens}&nbsp;&nbsp;+&nbsp;&nbsp;{main_usage.completion_tokens}&nbsp;&nbsp;=&nbsp;&nbsp;{main_usage.total_tokens}"
+            total_token_message = "TOTAL&nbsp;&nbsp;"+str(total_token_count)
+            cost_message = f"COST&nbsp;&nbsp;${cost:.5f}"
+            md_gap = '&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;'
+            system_message = 'TOKENS' + md_gap+ main_usage_message+md_gap + total_token_message + md_gap + cost_message
+            st.markdown(system_message)
         st.session_state.messages.append({"role": "assistant", "content": response})
-        st.session_state.messages.append({"role": "system", "content": usage_message+cost_message})
-        # st.session_state.messages.append({"role": "system", "content": cost_message})
-
+        st.session_state.messages.append({"role": "system", "content": system_message})
 
