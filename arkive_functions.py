@@ -44,15 +44,24 @@ def retrieve_top_k(user_query, index, texts, names, urls, time_range, k=5):
     if len(chunks) >= k:
       break
     doc_name = names[indices[0][i]].replace('__',' - ').replace('_', ' ').strip('.json')
-    doc_year = doc_name.split()[2]
+    # EXTRACT THE DOC YEAR TRYING TWO DIFFERENT METHODS
+    try:
+      potential_years = [word.replace(')','').replace('(','') for word in doc_name.split()]
+      potential_years = [word for word in potential_years if len(word) == 4 and word.isnumeric()]
+      doc_year = int(potential_years[0])
+    except: #USE 3 DIGIT NUMBERS TO CONVERT BAHAI ERA TO GREGORIAN
+      potential_years = [word.replace(')','').replace('(','') for word in doc_name.split()]
+      potential_years = [word for word in potential_years if len(word) == 3 and word.isnumeric()]
+      doc_year = int(potential_years[0]) + 1843
+    print(doc_year)
     text = texts[indices[0][i]]
     # IGNORE ANY CHUNK WITH LESS THAN 5 WORDS
     if len(text.split()) < 5:
       continue
     # CHECK IF THERE'S A TIME RANGE
     if time_range != None:
-      # IGNORE ANY CHUNKS OUTSIDE OF THE TIME RANGE
-      if doc_year < str(time_range['start_year']) or doc_year > str(time_range['end_year']):
+      # IGNORE ANY CHUNKS OUTSIDE OF THE TIME RANGE (BUFFER +- 2 YEAR INCLUDED)
+      if doc_year < (time_range['start_year']-2) or doc_year > (time_range['end_year']+2):
         continue
     chunks.append({"chunk":texts[indices[0][i]], "document_name":doc_name, "url":urls[indices[0][i]]})
     filtered_distances.append(distances[0][i])
