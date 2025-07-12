@@ -4,6 +4,7 @@ import json
 import faiss
 from datetime import date
 import requests
+import time
 from text_objects import *
 from arkive_functions import *
 
@@ -76,6 +77,7 @@ if st.session_state.authenticated:
     if user_query := st.chat_input("Ask anything from the guidance of the Universal House of Justice..."):
         cost = 0
         total_token_count = 0
+        start_time = time.time()
         # Store and display the current prompt.
         st.session_state.messages.append({"role": "user", "content": user_query})
         with st.chat_message("user"):
@@ -121,7 +123,10 @@ if st.session_state.authenticated:
             total_token_message = "TOTAL&nbsp;&nbsp;"+str(total_token_count)
             cost_message = f"COST&nbsp;&nbsp;${cost:.5f}"
             md_gap = '&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;'
-            system_message = 'TOKENS' + md_gap+ main_usage_message+md_gap + total_token_message + md_gap + cost_message
+            elapsed_time = time.time() - start_time
+            time_message = f"TIME {elapsed_time:.2f}s"
+            system_message = 'TOKENS' + md_gap+ main_usage_message+md_gap + total_token_message\
+                                      + md_gap + cost_message + md_gap + time_message
             st.markdown(system_message)
         st.session_state.messages.append({"role": "assistant", "content": response})
         st.session_state.messages.append({"role": "system", "content": system_message})
