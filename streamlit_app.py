@@ -84,7 +84,12 @@ if st.session_state.authenticated:
         time_range, time_range_usage = get_time_range(user_query)
         cost += usage_to_cost(time_range_usage, "gpt-4.1-mini")
         total_token_count += time_range_usage.total_tokens
-        context, distances = retrieve_top_k(user_query,index, texts, names, urls, time_range, k=5)
+
+        temporal_bias, temporal_bias_usage = get_temporal_bias(user_query)
+        cost += usage_to_cost(temporal_bias_usage, "gpt-4.1-mini")
+        total_token_count += temporal_bias_usage.total_tokens
+
+        context, distances = retrieve_top_k(user_query,index, texts, names, urls, time_range, temporal_bias, k=5)
         # IF valid_query RETURNS FALSE THEN DO NOT RETURN CONTEXT (EXTRA COST)
         is_valid, valid_query_usage = valid_query(user_query, distances)
         cost += usage_to_cost(valid_query_usage, "gpt-4.1-nano")

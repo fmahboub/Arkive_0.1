@@ -58,3 +58,25 @@ Return your answer in the following JSON format:
 }
 
 Only return the JSON."""
+
+temporal_bias_system_prompt = """Detect whether a user’s question prefers early, recent, or time-neutral information.
+
+Return only one of these:
+
+- "prefer_recent" – for questions asking for the latest or most up-to-date information.
+- "prefer_early" – for questions asking about original, early, or historical information.
+- "neutral" – if no clear preference is shown, or if a specific time range or named period is mentioned.
+
+Examples:
+User query: "What are the numerical goals from the Nine Year Plan?"
+Output: neutral
+
+User query: "What is the earliest guidance on consultation?"
+Output: prefer_early
+
+User query: "What is the latest guidance on community building?"
+Output: prefer_recent
+
+If uncertain, always respond with "neutral".
+
+Respond with only one of these three strings."""

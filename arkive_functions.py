@@ -29,22 +29,23 @@ def format_multiple_contexts(chunks: list[dict]) -> str:
         )
     return "\n\n".join(formatted_chunks)
 
-def retrieve_top_k(user_query, index, texts, names, urls, time_range, k=5):
+def retrieve_top_k(user_query, index, texts, names, urls, time_range, temporal_bias, k=5):
   # RETURN BLANK IF K=0
   if k == 0:
     return ''
 
   query_vector = embed_texts([user_query])[0].reshape(1, -1)
   time_range = time_range['time_range']
-  # RETURN 10x WHAT IS NEEDED (IN CASE OF WRONG TIME PERIODS + SMALL CHUNKS)
-  distances, indices = index.search(query_vector, k*10)
+  # RETURN 20x WHAT IS NEEDED (IN CASE OF TIME PERIOD CONSTRAINTS, SMALL CHUNKS OR TEMPORAL BIAS FILTERING)
+  distances, indices = index.search(query_vector, k*20)
   filtered_distances = []
   chunks = []
-  for i in range(k*10):
-    if len(chunks) >= k:
+  for i in range(k*20):
+    # ONLY STOP AT k IF THERE'S NO TEMPORAL BIAS
+    if len(chunks) >= k and temporal_bias == 'neutral':
       break
     doc_name = names[indices[0][i]].replace('__',' - ').replace('_', ' ').replace('– ',' ').strip('.json')
-    # EXTRACT THE DOC YEAR TRYING TWO DIFFERENT METHODS
+    # EXTRACT THE DOC YEAR TRYING TWO DIFFERENT METHODS (GREGORIAN vs. B.E.)
     try:
       potential_years = [word.replace(')','').replace('(','') for word in doc_name.split()]
       potential_years = [word for word in potential_years if len(word) == 4 and word.isnumeric()]
@@ -56,21 +57,37 @@ def retrieve_top_k(user_query, index, texts, names, urls, time_range, k=5):
         doc_year = int(potential_years[0]) + 1843
       except: # TEMP
         doc_year = 1980
-    print(doc_name)
-    print(potential_years)
     text = texts[indices[0][i]]
     # IGNORE ANY CHUNK WITH LESS THAN 5 WORDS
     if len(text.split()) < 5:
       continue
     # CHECK IF THERE'S A TIME RANGE
     if time_range != None:
-      # IGNORE ANY CHUNKS OUTSIDE OF THE TIME RANGE (BUFFER +- 2 YEAR INCLUDED)
-      if doc_year < (time_range['start_year']-2) or doc_year > (time_range['end_year']+2):
+      # IGNORE ANY CHUNKS OUTSIDE OF THE TIME RANGE (BUFFER - 2 YEARS FOR LOOK AHEADS)
+      if doc_year < (time_range['start_year']-2) or doc_year > time_range['end_year']:
         continue
-    chunks.append({"chunk":texts[indices[0][i]], "document_name":doc_name, "url":urls[indices[0][i]]})
+
+    chunks.append({
+            "chunk": text,
+            "document_name": doc_name,
+            "url": urls[indices[0][i]],
+            "year": doc_year,
+        })
+
+    # Apply temporal rerank
+    if temporal_bias == 'prefer_recent':
+        chunks = sorted(chunks, key=lambda x: x['year'], reverse=True)
+    elif temporal_bias == 'prefer_early':
+        chunks = sorted(chunks, key=lambda x: x['year'])
+    # else: do nothing — already semantically sorted
+
+    top_chunks = chunks[:k]
     filtered_distances.append(distances[0][i])
-  chunks = format_multiple_contexts(chunks)
-  return chunks, distances
+
+  # COMBINE ALL CHUNKS AND META-DATA INTO ONE STRING
+  top_chunks = format_multiple_contexts(top_chunks)
+
+  return top_chunks, distances
 
 def build_prompt(user_query, context):
   # Build prompt
@@ -172,3 +189,21 @@ def get_time_range(user_query):
     # print("Error: Couldn't reformat to JSON")
     # print(response.choices[0].message.content)
     return {"time_range": None}, response.usage
+
+def get_temporal_bias(user_query):
+  client = openai.OpenAI(api_key=openai.api_key)
+
+  response = client.chat.completions.create(
+      model="gpt-4.1-mini",
+      messages=[
+          {"role":"system"
+          ,"content":temporal_bias_system_prompt},
+          {"role": "user",
+          "content": user_query}],
+          temperature=0
+          )
+  usage = response.usage
+  response_string = response.choices[0].message.content.strip().lower()
+  if response_string not in ['prefer_recent', 'prefer_early', 'neutral']:
+    response_string = 'neutral'
+  return response_string, usage
