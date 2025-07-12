@@ -43,7 +43,7 @@ def retrieve_top_k(user_query, index, texts, names, urls, time_range, k=5):
   for i in range(k*10):
     if len(chunks) >= k:
       break
-    doc_name = names[indices[0][i]].replace('__',' - ').replace('_', ' ').strip('.json')
+    doc_name = names[indices[0][i]].replace('__',' - ').replace('_', ' ').replace('– ',' ').strip('.json')
     # EXTRACT THE DOC YEAR TRYING TWO DIFFERENT METHODS
     try:
       potential_years = [word.replace(')','').replace('(','') for word in doc_name.split()]
@@ -52,8 +52,12 @@ def retrieve_top_k(user_query, index, texts, names, urls, time_range, k=5):
     except: #USE 3 DIGIT NUMBERS TO CONVERT BAHAI ERA TO GREGORIAN
       potential_years = [word.replace(')','').replace('(','') for word in doc_name.split()]
       potential_years = [word for word in potential_years if len(word) == 3 and word.isnumeric()]
-      doc_year = int(potential_years[0]) + 1843
-    print(doc_year)
+      try:
+        doc_year = int(potential_years[0]) + 1843
+      except: # TEMP
+        doc_year = 1980
+    print(doc_name)
+    print(potential_years)
     text = texts[indices[0][i]]
     # IGNORE ANY CHUNK WITH LESS THAN 5 WORDS
     if len(text.split()) < 5:
