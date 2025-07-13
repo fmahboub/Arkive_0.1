@@ -29,18 +29,23 @@ def format_multiple_contexts(chunks: list[dict]) -> str:
         )
     return "\n\n".join(formatted_chunks)
 
-def retrieve_top_k(user_query, index, texts, names, urls, time_range, temporal_bias, k=5):
+def retrieve_top_k(user_query, index, texts, names, urls, time_range, temporal_bias, query_complexity, k=4):
+  
   # RETURN BLANK IF K=0
   if k == 0:
     return ''
 
+  # UPDATE k DEPENDING ON DETECTED COMPLEXITY
+  if query_complexity == 'moderate' or query_complexity == 'deep':
+    k *= 2
+
   query_vector = embed_texts([user_query])[0].reshape(1, -1)
   time_range = time_range['time_range']
-  # RETURN 20x WHAT IS NEEDED (IN CASE OF TIME PERIOD CONSTRAINTS, SMALL CHUNKS OR TEMPORAL BIAS FILTERING)
-  distances, indices = index.search(query_vector, k*20)
+  # RETURN 10x WHAT IS NEEDED (IN CASE OF TIME PERIOD CONSTRAINTS, SMALL CHUNKS OR TEMPORAL BIAS FILTERING)
+  distances, indices = index.search(query_vector, k*10)
   filtered_distances = []
   chunks = []
-  for i in range(k*20):
+  for i in range(k*10):
     # ONLY STOP AT k IF THERE'S NO TEMPORAL BIAS
     if len(chunks) >= k and temporal_bias == 'neutral':
       break
@@ -156,7 +161,8 @@ def valid_query(prompt, distances):
         messages=[
             {"role": "system", "content": system_message},
             {"role": "user", "content": full_prompt}
-        ]
+        ],
+        temperature = 0
     )
 
     answer = response.choices[0].message.content.strip().lower()
@@ -206,4 +212,24 @@ def get_temporal_bias(user_query):
   response_string = response.choices[0].message.content.strip().lower()
   if response_string not in ['prefer_recent', 'prefer_early', 'neutral']:
     response_string = 'neutral'
+  return response_string, usage
+
+def determine_complexity(user_query):
+  # Call OpenAI using the new API structure
+
+  client = openai.OpenAI(api_key=openai.api_key)
+
+  response = client.chat.completions.create(
+      model="gpt-4.1-mini",
+      messages=[
+          {"role":"system"
+          ,"content":determine_complexity_system_prompt},
+          {"role": "user",
+          "content": user_query}],
+          temperature=0
+          )
+  usage = response.usage
+  response_string = response.choices[0].message.content.strip().lower()
+  if response_string not in ['shallow', 'moderate', 'deep']:
+    response_string = 'moderate'
   return response_string, usage

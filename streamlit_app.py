@@ -44,10 +44,15 @@ if not st.session_state.authenticated:
     # Password input
     entered_password = st.text_input("Password", type="password")
     actual_password = st.secrets["auth"]["entry_password"]
+    admin_password = st.secrets["auth"]["admin_password"]
 
     if entered_password:
-        if entered_password == actual_password:
+        if entered_password in [actual_password, admin_password]:
             st.session_state.authenticated = True
+            if entered_password == admin_password:
+                st.session_state.admin_authenticated = True
+            else:
+                st.session_state.admin_authenticated = False
             st.success("Access granted. You may now use the app.")
             st.rerun()
         else:
@@ -77,25 +82,37 @@ if st.session_state.authenticated:
     if user_query := st.chat_input("Ask anything from the guidance of the Universal House of Justice..."):
         cost = 0
         total_token_count = 0
+        admin_message = ''
         start_time = time.time()
         # Store and display the current prompt.
         st.session_state.messages.append({"role": "user", "content": user_query})
         with st.chat_message("user"):
             st.markdown(user_query)
 
+        query_complexity, complexity_usage = determine_complexity(user_query)
+        cost += usage_to_cost(complexity_usage, "gpt-4.1-mini")
+        total_token_count += complexity_usage.total_tokens
+        admin_message += '**COMPLEXITY:** '+ query_complexity.title() + md_gap
+
         time_range, time_range_usage = get_time_range(user_query)
         cost += usage_to_cost(time_range_usage, "gpt-4.1-mini")
         total_token_count += time_range_usage.total_tokens
+        admin_message += '**TIME RANGE:** '+ str(time_range['time_range']).title() + md_gap
 
         temporal_bias, temporal_bias_usage = get_temporal_bias(user_query)
         cost += usage_to_cost(temporal_bias_usage, "gpt-4.1-mini")
         total_token_count += temporal_bias_usage.total_tokens
+        admin_message += '**TEMP BIAS:** '+ temporal_bias.title() + md_gap
 
-        context, distances = retrieve_top_k(user_query,index, texts, names, urls, time_range, temporal_bias, k=5)
+        context, distances = retrieve_top_k(user_query,index, texts, names, urls,
+                                             time_range, temporal_bias, query_complexity, k=5)
+        
         # IF valid_query RETURNS FALSE THEN DO NOT RETURN CONTEXT (EXTRA COST)
         is_valid, valid_query_usage = valid_query(user_query, distances)
         cost += usage_to_cost(valid_query_usage, "gpt-4.1-nano")
         total_token_count += valid_query_usage.total_tokens
+        admin_message += '**VALID:** ' + str(is_valid).title()
+
         if is_valid:
             prompt = build_prompt(user_query, context)
         else:
@@ -122,12 +139,17 @@ if st.session_state.authenticated:
             main_usage_message = f"MAIN&nbsp;&nbsp;{main_usage.prompt_tokens}&nbsp;&nbsp;+&nbsp;&nbsp;{main_usage.completion_tokens}&nbsp;&nbsp;=&nbsp;&nbsp;{main_usage.total_tokens}"
             total_token_message = "TOTAL&nbsp;&nbsp;"+str(total_token_count)
             cost_message = f"COST&nbsp;&nbsp;${cost:.5f}"
-            md_gap = '&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;'
             elapsed_time = time.time() - start_time
             time_message = f"TIME {elapsed_time:.2f}s"
             system_message = 'TOKENS' + md_gap+ main_usage_message+md_gap + total_token_message\
                                       + md_gap + cost_message + md_gap + time_message
-            st.markdown(system_message)
+            if st.session_state.admin_authenticated:
+                st.markdown(system_message +"  \n"+ admin_message)
+            else:
+                st.markdown(system_message)
         st.session_state.messages.append({"role": "assistant", "content": response})
-        st.session_state.messages.append({"role": "system", "content": system_message})
+        if st.session_state.admin_authenticated:
+            st.session_state.messages.append({"role": "system", "content": system_message +" \n"+ admin_message})
+        else:
+            st.session_state.messages.append({"role": "system", "content": system_message})
 

@@ -1,6 +1,8 @@
 from datetime import date
 today = str(date.today())
 
+md_gap = '&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;'
+
 main_system_prompt = """You are an assistant that answers questions using only the writings of the Universal House of Justice. 
 Always cite the source of your answers using the retrieved context. 
 
@@ -68,15 +70,35 @@ Return only one of these:
 - "neutral" – if no clear preference is shown, or if a specific time range or named period is mentioned.
 
 Examples:
-User query: "What are the numerical goals from the Nine Year Plan?"
+User query: "What are the numerical goals from [time period]?"
 Output: neutral
 
-User query: "What is the earliest guidance on consultation?"
+User query: "How has the house of justice's view on [subject] changed over the years
+Output: neutral
+
+User query: "What does the House of Justice say about [subject]?"
+Output: neutral
+
+User query: "What is the earliest guidance on [subject]?"
 Output: prefer_early
 
-User query: "What is the latest guidance on community building?"
+User query: "What is the latest guidance on [subject]?"
 Output: prefer_recent
 
 If uncertain, always respond with "neutral".
 
 Respond with only one of these three strings."""
+
+determine_complexity_system_prompt = """Your job is to determine how much context is needed to answer a question about a collection of documents — in this case, messages from the Universal House of Justice.
+
+Classify the user's query into one of the following categories:
+
+- "shallow" – The query asks for a specific fact, date, event, name, or a short answer that can be answered from a small excerpt or a few lines. Only a few chunks are needed.
+
+- "moderate" – The query seeks a theme, principle, or concept that appears in more than one place or needs a paragraph or two to support it. Several chunks (e.g., 5–8) may be required.
+
+- "deep" – The query asks for historical development, synthesis of multiple ideas, nuanced guidance, evolving positions, or implicit concepts that require broad context. The entire document or multiple full documents should be considered.
+
+Return only one of: **"shallow"**, **"moderate"**, or **"deep"**.
+
+Respond only with the category. Do not include explanations or reasoning."""
