@@ -94,7 +94,9 @@ def retrieve_top_k(user_query, index, texts, names, urls, time_range, temporal_b
 
   return top_chunks, distances
 
-def build_prompt(user_query, context):
+def build_prompt(user_query, context, is_valid):
+  if not is_valid:
+     context = 'Nothing Found'
   # Build prompt
   prompt = f"Use the following context to answer the question:\n{context}\
   \n\nQuestion: {user_query}\nAnswer:"

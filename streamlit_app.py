@@ -89,34 +89,42 @@ if st.session_state.authenticated:
         with st.chat_message("user"):
             st.markdown(user_query)
 
-        query_complexity, complexity_usage = determine_complexity(user_query)
-        cost += usage_to_cost(complexity_usage, "gpt-4.1-mini")
-        total_token_count += complexity_usage.total_tokens
-        admin_message += '**COMPLEXITY:** '+ query_complexity.title() + md_gap
-
-        time_range, time_range_usage = get_time_range(user_query)
-        cost += usage_to_cost(time_range_usage, "gpt-4.1-mini")
-        total_token_count += time_range_usage.total_tokens
-        admin_message += '**TIME RANGE:** '+ str(time_range['time_range']).title() + md_gap
-
-        temporal_bias, temporal_bias_usage = get_temporal_bias(user_query)
-        cost += usage_to_cost(temporal_bias_usage, "gpt-4.1-mini")
-        total_token_count += temporal_bias_usage.total_tokens
-        admin_message += '**TEMP BIAS:** '+ temporal_bias.title() + md_gap
-
+        # RUN SIMPLE SEARCH WITH K=1 AND NO OTHER CONSTRAINTS FOR is_valid
         context, distances = retrieve_top_k(user_query,index, texts, names, urls,
-                                             time_range, temporal_bias, query_complexity, k=5)
-        
+                                             {"time_range": None}, 'neutral', 'shallow', k=1)
+
         # IF valid_query RETURNS FALSE THEN DO NOT RETURN CONTEXT (EXTRA COST)
         is_valid, valid_query_usage = valid_query(user_query, distances)
         cost += usage_to_cost(valid_query_usage, "gpt-4.1-nano")
         total_token_count += valid_query_usage.total_tokens
-        admin_message += '**VALID:** ' + str(is_valid).title()
+        admin_message += '**VALID:** ' + str(is_valid).title() + md_gap
 
         if is_valid:
-            prompt = build_prompt(user_query, context)
+            query_complexity, complexity_usage = determine_complexity(user_query)
+            cost += usage_to_cost(complexity_usage, "gpt-4.1-mini")
+            total_token_count += complexity_usage.total_tokens
+            admin_message += '**COMPLEXITY:** '+ query_complexity.title() + md_gap
+
+            time_range, time_range_usage = get_time_range(user_query)
+            cost += usage_to_cost(time_range_usage, "gpt-4.1-mini")
+            total_token_count += time_range_usage.total_tokens
+            admin_message += '**TIME RANGE:** '+ str(time_range['time_range']).title() + md_gap
+
+            temporal_bias, temporal_bias_usage = get_temporal_bias(user_query)
+            cost += usage_to_cost(temporal_bias_usage, "gpt-4.1-mini")
+            total_token_count += temporal_bias_usage.total_tokens
+            admin_message += '**TEMP BIAS:** '+ temporal_bias.title() 
+
+            # RUN PROPER SEARCH WITH ALL PARAMETERS PREPARED
+            context, distances = retrieve_top_k(user_query,index, texts, names, urls,
+                                                time_range, temporal_bias, query_complexity, k=5)
         else:
-            prompt = user_query 
+            admin_message += '**COMPLEXITY:** '+ 'N/A' + md_gap
+            admin_message += '**TIME RANGE:** '+ 'N/A' + md_gap
+            admin_message += '**TEMP BIAS:** '+ 'N/A'
+        
+        prompt = build_prompt(user_query, context, is_valid)
+
         # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
             model=default_model,
@@ -149,7 +157,7 @@ if st.session_state.authenticated:
                 st.markdown(system_message)
         st.session_state.messages.append({"role": "assistant", "content": response})
         if st.session_state.admin_authenticated:
-            st.session_state.messages.append({"role": "system", "content": system_message +" \n"+ admin_message})
+            st.session_state.messages.append({"role": "system", "content": system_message +"\n\n"+ admin_message})
         else:
             st.session_state.messages.append({"role": "system", "content": system_message})
 
