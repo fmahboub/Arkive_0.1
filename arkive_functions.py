@@ -5,11 +5,14 @@ import faiss
 import time
 import json
 import asyncio
+from openai import AsyncOpenAI
 
 from datetime import date
 from text_objects import *
 
 openai.api_key = st.secrets["api_keys"]["openai"]
+async_client = AsyncOpenAI(api_key=openai.api_key)
+client = openai.OpenAI(api_key=openai.api_key)
 
 def embed_texts(texts, model="text-embedding-3-large", batch_size=100):
     embeddings = []
@@ -155,7 +158,6 @@ def usage_to_cost(usage, model, use_cached_input=False):
     return prompt_cost + completion_cost
 
 def valid_query(prompt, distances):
-    client = openai.OpenAI(api_key=openai.api_key)
 
     system_message = "Is it remotely possible that the following text can be answered by the writings of the Universal House of Justice? Lean yes if unsure and answer only 'yes' or 'no'"
     full_prompt = f'"{prompt}"'
@@ -177,9 +179,7 @@ def valid_query(prompt, distances):
 
 async def get_time_range(user_query):
   # Call OpenAI using the new API structure
-  client = openai.OpenAI(api_key=openai.api_key)
-
-  response = client.chat.completions.create(
+  response = await async_client.chat.completions.create(
       model="gpt-4.1-mini",
       messages=[
           {"role":"system"
@@ -201,9 +201,8 @@ async def get_time_range(user_query):
     return {"time_range": None}, response.usage
 
 async def get_temporal_bias(user_query):
-  client = openai.OpenAI(api_key=openai.api_key)
 
-  response = client.chat.completions.create(
+  response = await async_client.chat.completions.create(
       model="gpt-4.1-mini",
       messages=[
           {"role":"system"
@@ -221,9 +220,7 @@ async def get_temporal_bias(user_query):
 async def determine_complexity(user_query):
   # Call OpenAI using the new API structure
 
-  client = openai.OpenAI(api_key=openai.api_key)
-
-  response = client.chat.completions.create(
+  response = await async_client.chat.completions.create(
       model="gpt-4.1-mini",
       messages=[
           {"role":"system"
