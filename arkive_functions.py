@@ -4,6 +4,8 @@ import numpy as np
 import faiss
 import time
 import json
+import asyncio
+
 from datetime import date
 from text_objects import *
 
@@ -173,7 +175,7 @@ def valid_query(prompt, distances):
     else:
         return False, response.usage
 
-def get_time_range(user_query):
+async def get_time_range(user_query):
   # Call OpenAI using the new API structure
   client = openai.OpenAI(api_key=openai.api_key)
 
@@ -198,7 +200,7 @@ def get_time_range(user_query):
     # print(response.choices[0].message.content)
     return {"time_range": None}, response.usage
 
-def get_temporal_bias(user_query):
+async def get_temporal_bias(user_query):
   client = openai.OpenAI(api_key=openai.api_key)
 
   response = client.chat.completions.create(
@@ -216,7 +218,7 @@ def get_temporal_bias(user_query):
     response_string = 'neutral'
   return response_string, usage
 
-def determine_complexity(user_query):
+async def determine_complexity(user_query):
   # Call OpenAI using the new API structure
 
   client = openai.OpenAI(api_key=openai.api_key)
@@ -235,3 +237,12 @@ def determine_complexity(user_query):
   if response_string not in ['shallow', 'moderate', 'deep']:
     response_string = 'moderate'
   return response_string, usage
+
+def run_async_llm_calls(query):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    return loop.run_until_complete(asyncio.gather(
+        get_time_range(query),
+        get_temporal_bias(query),
+        determine_complexity(query)
+    ))

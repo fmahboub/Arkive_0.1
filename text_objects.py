@@ -71,7 +71,7 @@ temporal_bias_system_prompt = """You are tasked with identifying the temporal pr
 
 - "prefer_recent" – if the user seeks the latest or most up-to-date information.
 - "prefer_early" – if the user seeks original or early information.
-- "neutral" – if no clear temporal preference is shown, or if a specific time period is mentioned.
+- "neutral" – if no clear temporal preference is shown, or if a specific time period is mentioned (including bounded ranges like "last 10 years" or "between 1990 and 2000").
 
 Examples:
 - "What are the numerical goals from [time period]?" → neutral
@@ -81,6 +81,8 @@ Examples:
 - "Who is [person]?" → neutral
 - "What is the earliest guidance on [subject]?" → prefer_early
 - "What is the latest guidance on [subject]?" → prefer_recent
+- "List all the mentions of Bahaullah in the last 15 years" → neutral
+- "What was said between 2005 and 2010 about [subject]?" → neutral
 
 If uncertain, default to "neutral".
 Respond with only one of the three exact strings."""

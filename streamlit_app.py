@@ -69,7 +69,7 @@ if st.session_state.authenticated:
     openai_api_key = st.secrets["api_keys"]["openai"]
     client = openai.OpenAI(api_key=openai_api_key)
     default_model = "gpt-4.1"
-    
+
     # Create a session state variable to store the chat messages. This ensures that the
     # messages persist across reruns.
     if "messages" not in st.session_state:
@@ -103,20 +103,24 @@ if st.session_state.authenticated:
         admin_message += '**VALID:** ' + str(is_valid).title() + md_gap
 
         if is_valid:
-            query_complexity, complexity_usage = determine_complexity(user_query)
-            cost += usage_to_cost(complexity_usage, "gpt-4.1-mini")
-            total_token_count += complexity_usage.total_tokens
-            admin_message += '**COMPLEXITY:** '+ query_complexity.title() + md_gap
+            (time_range, time_range_usage), \
+            (temporal_bias, temporal_bias_usage), \
+            (query_complexity, complexity_usage) = run_async_llm_calls(user_query)
 
-            time_range, time_range_usage = get_time_range(user_query)
+            # ADD UP COSTS
             cost += usage_to_cost(time_range_usage, "gpt-4.1-mini")
-            total_token_count += time_range_usage.total_tokens
-            admin_message += '**TIME RANGE:** '+ str(time_range['time_range']).title() + md_gap
-
-            temporal_bias, temporal_bias_usage = get_temporal_bias(user_query)
             cost += usage_to_cost(temporal_bias_usage, "gpt-4.1-mini")
+            cost += usage_to_cost(complexity_usage, "gpt-4.1-mini")
+
+            # ADD UP TOKEN COUNTS
+            total_token_count += time_range_usage.total_tokens
             total_token_count += temporal_bias_usage.total_tokens
-            admin_message += '**TEMP BIAS:** '+ temporal_bias.title() 
+            total_token_count += complexity_usage.total_tokens
+
+            # ADD ADMIN MESSAGES
+            admin_message += '**TIME RANGE:** '+ str(time_range['time_range']).title() + md_gap
+            admin_message += '**TEMP BIAS:** '+ temporal_bias.title() + md_gap
+            admin_message += '**COMPLEXITY:** '+ query_complexity.title() 
 
             # RUN PROPER SEARCH WITH ALL PARAMETERS PREPARED
             context, distances = retrieve_top_k(user_query,index, texts, names, urls,
