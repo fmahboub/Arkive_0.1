@@ -63,6 +63,10 @@ if not st.session_state.authenticated:
 # If authenticated, show the rest of your app
 if st.session_state.authenticated:
     col1, col2, col3 = st.columns([11, 20, 8])
+    with col1:
+        if st.session_state.admin_authenticated:
+            # Toggle in Streamlit UI
+            show_input = st.checkbox("Show Input", value=False)
     with col2:
         st.image("Logo_White_NoBG.png", width=250)
     # API key from secrets
@@ -93,7 +97,7 @@ if st.session_state.authenticated:
             st.markdown(user_query)
 
         # RUN SIMPLE SEARCH WITH K=1 AND NO OTHER CONSTRAINTS FOR is_valid
-        context, distances = retrieve_top_k(user_query,index, texts, names, urls,
+        simple_context, distances = retrieve_top_k(user_query,index, texts, names, urls,
                                              {"time_range": None}, 'neutral', 'shallow', k=1)
 
         # IF valid_query RETURNS FALSE THEN DO NOT RETURN CONTEXT (EXTRA COST)
@@ -125,6 +129,7 @@ if st.session_state.authenticated:
             # RUN PROPER SEARCH WITH ALL PARAMETERS PREPARED
             context, distances = retrieve_top_k(user_query,index, texts, names, urls,
                                                 time_range, temporal_bias, query_complexity, k=5)
+         
         else:
             admin_message += '**COMPLEXITY:** '+ 'N/A' + md_gap
             admin_message += '**TIME RANGE:** '+ 'N/A' + md_gap
@@ -160,6 +165,9 @@ if st.session_state.authenticated:
                                       + md_gap + cost_message + md_gap + time_message
             if st.session_state.admin_authenticated:
                 st.markdown(system_message +"  \n"+ admin_message)
+                if show_input:
+                    st.markdown('-'*50+' USER PROMPT '+'-'*50)
+                    st.write(prompt)
             else:
                 st.markdown(system_message)
         st.session_state.messages.append({"role": "assistant", "content": response})

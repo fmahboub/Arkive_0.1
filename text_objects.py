@@ -22,39 +22,42 @@ References:
 
 Omit the "References" section if no citations are included. Never fabricate or add commentary beyond the retrieved material."""
 
-get_time_range_system_prompt = """The present year is """+today.split('-')[0]+""". Extract the time period (years) referred to in the user query, if any, following these rules:
+get_time_range_system_prompt = """The present year is """ + today.split('-')[0] + """. Extract the time period (years) from the user's query using these rules:
 
-- If the query asks about the *earliest*, *first*, *original*, or *oldest* mention or occurrence, respond with:
+- If explicit years or ranges are given, extract them:
+  "1988 to 2005" → 1988–2005  
+  "after 2000" → 2001–[present year]  
+  "from 1980" → 1980–[present year]  
+  "last decade" or "past 10 years" → [present year - 10]–[present year]
+
+- If the query refers to the earliest, first, original, or oldest occurrence **and** no specific time frame is mentioned, return:
   {"time_range": null}
 
-- Extract only years between 1963 and 2025.
+- Only extract years between 1963 and 2025.
 
-- Map general periods to approximate ranges:
-  "recent," "nowadays," "modern times" → 2011–2025
-  "last decade," "past 10 years" → (present year minus 10) to present year
-  "since the turn of the century," "21st century" → 2000–2025
-  "in the 90s" → 1990–1999
-  "in the 80s" → 1980–1989
-  "in the 70s" → 1970–1979
-  "in the 60s" → 1963–1969
-  "early period" → 1963–1979
-  "Expansion Era" → 1980–1995
-  "turn of the millennium" → 1995–2005
+- Map vague periods to year ranges:
+  "recent", "nowadays", "modern times" → 2011–2025  
+  "21st century", "since the turn of the century" → 2000–[present year]  
+  "in the 90s" → 1990–1999  
+  "in the 80s" → 1980–1989  
+  "in the 70s" → 1970–1979  
+  "in the 60s" → 1963–1969  
+  "early period" → 1963–1979  
+  "Expansion Era" → 1980–1995  
+  "turn of the millennium" → 1995–2005  
   "in the past" or "historically" (no specific years) → 1963–2000
 
-- If explicit years or ranges are mentioned (e.g., "between 1985 and 1993"), extract them directly.
-
-- If no time period is mentioned, respond with:
+- If no time reference is present, return:
   {"time_range": null}
 
-Return only the JSON:
-
+Respond only with JSON in this format:
 {
   "time_range": {
     "start_year": <earliest_year>,
     "end_year": <latest_year>
   }
-}"""
+}
+"""
 
 temporal_bias_system_prompt = """You are tasked with identifying the temporal preference of a user's question. Classify each query as one of:
 
@@ -69,7 +72,11 @@ Examples:
 - "Was [object] mentioned during [time period]?" → neutral
 - "Who is [person]?" → neutral
 - "What is the earliest guidance on [subject]?" → prefer_early
+- "What was the earliest mention of [subject]?" → prefer_early
+- "What was the first mention of [subject] during [time period]?" → prefer_early
+- "What was the most recent mention of [subject]?" → prefer_recent
 - "What is the latest guidance on [subject]?" → prefer_recent
+- "What was the last mention of [subject] during [time period]?" → prefer_recent
 - "List all the mentions of Bahaullah in the last 15 years" → neutral
 - "What was said between 2005 and 2010 about [subject]?" → neutral
 

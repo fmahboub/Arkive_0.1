@@ -32,6 +32,7 @@ def format_multiple_contexts(chunks: list[dict]) -> str:
         formatted_chunks.append(
             f"""---\nSource: {c['document_name']}\nURL: {c['url']}\n\n{c['chunk']}"""
         )
+    formatted_chunks.append("---\n")
     return "\n\n".join(formatted_chunks)
 
 def retrieve_top_k(user_query, index, texts, names, urls, time_range, temporal_bias, query_complexity, k=4):
@@ -41,7 +42,7 @@ def retrieve_top_k(user_query, index, texts, names, urls, time_range, temporal_b
     return ''
 
   # UPDATE k DEPENDING ON DETECTED COMPLEXITY
-  if query_complexity == 'moderate' or query_complexity == 'deep':
+  if query_complexity == 'moderate' or query_complexity == 'deep' or temporal_bias != 'neutral':
     k *= 2
 
   query_vector = embed_texts([user_query])[0].reshape(1, -1)
@@ -69,7 +70,7 @@ def retrieve_top_k(user_query, index, texts, names, urls, time_range, temporal_b
         doc_year = 1980
     text = texts[indices[0][i]]
     # IGNORE ANY CHUNK WITH LESS THAN 5 WORDS
-    if len(text.split()) < 5:
+    if len(text.split()) < 7:
       continue
     # CHECK IF THERE'S A TIME RANGE
     if time_range != None:
@@ -79,20 +80,31 @@ def retrieve_top_k(user_query, index, texts, names, urls, time_range, temporal_b
 
     chunks.append({
             "chunk": text,
+            "distance": distances[0][i],
             "document_name": doc_name,
             "url": urls[indices[0][i]],
             "year": doc_year,
         })
+    # END LOOP
+    
+  # Apply temporal rerank
+  if temporal_bias == 'prefer_recent':
+      chunks = sorted(chunks, key=lambda x: x['year'], reverse=True)
+  elif temporal_bias == 'prefer_early':
+      chunks = sorted(chunks, key=lambda x: x['year'])
+  # else: do nothing — already semantically sorted
 
-    # Apply temporal rerank
-    if temporal_bias == 'prefer_recent':
-        chunks = sorted(chunks, key=lambda x: x['year'], reverse=True)
-    elif temporal_bias == 'prefer_early':
-        chunks = sorted(chunks, key=lambda x: x['year'])
-    # else: do nothing — already semantically sorted
+  # SINCE WE OVER COLLECTED CHUNKS DUE TO temporal_bias WE NEED TO FILTER OUT ANYTHING BELOW AVERAGE SIMILARITY
+  if temporal_bias != 'neutral':
+      # Compute median distance
+      all_distances = [chunk['distance'] for chunk in chunks]
+      bottom_quartile_dist = np.percentile(all_distances, 10)
+      # Filter out chunks with distance > median
+      chunks = [chunk for chunk in chunks if (chunk['distance'] <= bottom_quartile_dist and chunk['distance']<=1.7)]
 
-    top_chunks = chunks[:k]
-    filtered_distances.append(distances[0][i])
+
+  top_chunks = chunks[:k]
+  filtered_distances.append(distances[0][i])
 
   # COMBINE ALL CHUNKS AND META-DATA INTO ONE STRING
   top_chunks = format_multiple_contexts(top_chunks)
@@ -104,7 +116,7 @@ def build_prompt(user_query, context, is_valid):
      context = 'Nothing Found'
   # Build prompt
   prompt = f"Use the following context to answer the question:\n{context}\
-  \n\nQuestion: {user_query}\nAnswer:"
+  \n\nQuestion: {user_query}\n\nAnswer:"
   return prompt
 
 def stream_with_placeholder(stream):
