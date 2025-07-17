@@ -5,6 +5,8 @@ import faiss
 from datetime import date
 import requests
 import time
+import asyncio
+# CUSTOM IMPORTS
 from text_objects import *
 from arkive_functions import *
 
@@ -67,6 +69,7 @@ if st.session_state.authenticated:
     openai_api_key = st.secrets["api_keys"]["openai"]
     client = openai.OpenAI(api_key=openai_api_key)
     default_model = "gpt-4.1"
+    
     # Create a session state variable to store the chat messages. This ensures that the
     # messages persist across reruns.
     if "messages" not in st.session_state:

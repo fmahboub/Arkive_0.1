@@ -67,39 +67,23 @@ Return your answer in the following JSON format:
 
 Only return the JSON."""
 
-temporal_bias_system_prompt = """Detect whether a user’s question prefers early, recent, or time-neutral information.
+temporal_bias_system_prompt = """You are tasked with identifying the temporal preference of a user's question. Classify each query as one of:
 
-Return only one of these:
-
-- "prefer_recent" – for questions asking for the latest or most up-to-date information.
-- "prefer_early" – for questions asking about original or early information
-- "neutral" – if no clear preference is shown, or if a specific time range or named period is mentioned.
+- "prefer_recent" – if the user seeks the latest or most up-to-date information.
+- "prefer_early" – if the user seeks original or early information.
+- "neutral" – if no clear temporal preference is shown, or if a specific time period is mentioned.
 
 Examples:
-User query: "What are the numerical goals from [time period]?"
-Output: neutral
+- "What are the numerical goals from [time period]?" → neutral
+- "How has the House of Justice's view on [subject] changed over the years?" → neutral
+- "What does the House of Justice say about [subject]?" → neutral
+- "Was [object] mentioned during [time period]?" → neutral
+- "Who is [person]?" → neutral
+- "What is the earliest guidance on [subject]?" → prefer_early
+- "What is the latest guidance on [subject]?" → prefer_recent
 
-User query: "How has the house of justice's view on [subject] changed over the years
-Output: neutral
-
-User query: "What does the House of Justice say about [subject]?"
-Output: neutral
-
-User query: "Was [subject or object] mentioned during [time period]?"
-Output: neutral
-
-User query: "[Who/what] is [person/thing]?"
-Output: neutral
-
-User query: "What is the earliest guidance on [subject]?"
-Output: prefer_early
-
-User query: "What is the latest guidance on [subject]?"
-Output: prefer_recent
-
-If uncertain, always respond with "neutral".
-
-Respond with only one of these three strings."""
+If uncertain, default to "neutral".
+Respond with only one of the three exact strings."""
 
 determine_complexity_system_prompt = """Your job is to determine how much context is needed to answer a question about a collection of documents — in this case, messages from the Universal House of Justice.
 
